@@ -1,13 +1,12 @@
-# [Project Name]
+# Histology image registration
 
-[Brief description of the project]
+The problem we aim to solve is the spatial misalignment between high-resolution histology images obtained from adjacent tissue sections. Each tissue sample is cut into thin slices, stained, and scanned separately, which causes distortions, tears, and nonlinear differences across slides. The input to our system will be a pair of whole-slide images (WSIs)—a fixed image and a moving image—and the goal is to produce a deformation field that warps the moving image so that it aligns accurately with the fixed one.
 
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Download Training Data](#download-training-data)
 - [Usage](#usage)
-- [License](#license)
 
 ## Prerequisites
 
