@@ -79,7 +79,7 @@ def main():
     transformed_img = cropped_trans_orig.astype(np.float32) / 255.0
     # transformed_img = cv2.resize(transformed_img, None, fx=0.5, fy=0.5) # temp
     image2 = cropped_fixed_orig.astype(np.float32) / 255.0
-    image2 = cv2.resize(image2, None, fx=0.5, fy=0.5)
+    # image2 = cv2.resize(image2, None, fx=0.5, fy=0.5)
     print('Shapes: ',transformed_img.shape, image2.shape)
 
     temp = cv2.resize(transformed_img, None, fx=0.1, fy=0.1)

@@ -315,8 +315,8 @@ def read_input_images_local(input_path: str):
 
     for f in subfolders:
         print(f"Processing {f}...")
-        fixed_dir = os.path.join(input_path, f, "patches_512_registered3", "fixed")
-        moving_dir = os.path.join(input_path, f, "patches_512_registered3", "moving")
+        fixed_dir = os.path.join(input_path, f, "patches_512", "fixed")
+        moving_dir = os.path.join(input_path, f, "patches_512", "moving")
 
         if not os.path.exists(fixed_dir) or not os.path.exists(moving_dir):
             print(f"Missing fixed/moving folder for {f}, skipping.")

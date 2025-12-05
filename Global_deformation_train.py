@@ -431,8 +431,7 @@ def train_model(input_path, save_path):
                 print(f"  Batch {i+1} - Loss: {loss.item():.6f}")
         print(f"Epoch {epoch+1} - Avg Loss: {epoch_loss / len(dataloader):.6f}")
 
-    # save_path = "/extra/zhanglab0/INDV/leiy28/image_registration/global_deform/test1/checkpoint_augment2.pth"
-    save_path = "/extra/zhanglab0/INDV/leiy28/image_registration/global_deform/test1/checkpoint_real_sample_v3.pth"
+    # save_path = "/extra/zhanglab0/INDV/leiy28/image_registration/global_deform/test1/checkpoint_real_sample_v3.pth"
 
     torch.save({
         'epoch': epoch,

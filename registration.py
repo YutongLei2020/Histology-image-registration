@@ -183,7 +183,7 @@ def post_processing_mask_relative(mask: np.ndarray, ratio=0.2) -> np.ndarray:
     return (cleaned > 0).astype(np.uint8)
 
 
-def preprocess_images(moving_path, fixed_path, spatial_coord_path, save_dir, global_model_path, local_model_path):
+def preprocess_images(moving_path, fixed_path, save_dir, global_model_path, local_model_path):
     print(f"Processing ({moving_path}) -> ({fixed_path}).")
 
     os.makedirs(os.path.join(save_dir, "preprocess_out"), exist_ok=True)
@@ -236,17 +236,6 @@ def preprocess_images(moving_path, fixed_path, spatial_coord_path, save_dir, glo
 
 
 
-    # Spatial coordinate/landmark load
-    spatial_positions = pd.read_csv(spatial_coord_path, header=None)
-
-    spot_ids = spatial_positions[0].values
-
-    spots_xy_fullres = spatial_positions[[5, 4]].to_numpy()
-
-    spots_xy_rigid = transform_points_xy(spots_xy_fullres, homography_fullres)
-
-
-
     
     ##############
     image1_norm = image1.astype(np.float32) / 255.0 if image1.max() > 1.0 else image1.astype(np.float32)
@@ -286,8 +275,6 @@ def preprocess_images(moving_path, fixed_path, spatial_coord_path, save_dir, glo
 
     print(highres_flow.shape)
 
-    spots_xy_rigid = torch.as_tensor(spots_xy_rigid, dtype=torch.float32, device=highres_flow.device)
-    spots_xy_global = source_to_target_points(spots_xy_rigid, highres_flow.squeeze(0), iters=10)  # Nx2
 
     image_moving_gray_torch = torch.from_numpy(moving.mean(axis=2)).float().unsqueeze(0)
     # print(image_moving_gray_torch.shape)
@@ -357,25 +344,7 @@ def preprocess_images(moving_path, fixed_path, spatial_coord_path, save_dir, glo
     tiff.imwrite(os.path.join(save_dir, "preprocess_out/deformation_field.tif"), final_field)
     
     final_field = torch.from_numpy(final_field)
-    spots_xy_global = torch.as_tensor(spots_xy_global, dtype=torch.float32, device=final_field.device)
-    spots_xy_local = source_to_target_points(spots_xy_global, final_field, iters=10)  # Nx2
-    # df = pd.DataFrame(spots_xy_transformed, columns=["x", "y"])
-    # df.to_csv("transformed_spots.csv", index=False)
 
-    temp_spots_xy_local = spots_xy_local.detach().numpy()
-
-
-    # Transformed spatial coordinate/landmark save
-    df = pd.DataFrame({
-        "barcode": spot_ids,
-        "in_tissue": spatial_positions[1].values,
-        "row": spatial_positions[2].values,
-        "col": spatial_positions[3].values,
-        "y_transformed": temp_spots_xy_local[:, 1],
-        "x_transformed": temp_spots_xy_local[:, 0]
-    })
-    # os.path.join(save_dir, "preprocess_out/transformed_spots.csv")
-    # df.to_csv(os.path.join(save_dir, "preprocess_out/transformed_spots2.csv"), index=False)
 
     print(f"{save_dir} Finished.")
 
@@ -400,8 +369,7 @@ if __name__ == "__main__":
     parser.add_argument("--fixed_path", type=str, required=True, help="Path to the second image (e.g., IHC).")
     parser.add_argument("--global_model_path", type=str, required=True, help="Path to the global deformation model.")
     parser.add_argument("--local_model_path", type=str, required=True, help="Path to the local deformation model.")
-    parser.add_argument("--spatial_coord_path", type=str, required=True, help="Path to the spatial coordinate file.")
     parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the processed outputs.")
 
     args = parser.parse_args()
-    preprocess_images(args.moving_path, args.fixed_path, args.spatial_coord_path, args.save_dir, args.global_model_path, args.local_model_path)
+    preprocess_images(args.moving_path, args.fixed_path, args.save_dir, args.global_model_path, args.local_model_path)

@@ -143,7 +143,7 @@ def preprocess_images(data1_path, data2_path, save_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Preprocess paired WSI images using keypoint matching and segmentation.")
-    parser.add_argument("--data1_path", type=str, required=True, help="Path to the first image (e.g., H&E).")
+    parser.add_argument("--data_path", type=str, required=True, help="Path to the first image (e.g., H&E).")
     parser.add_argument("--data2_path", type=str, required=True, help="Path to the second image (e.g., IHC).")
     parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the processed outputs.")
 
