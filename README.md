@@ -44,6 +44,8 @@ Follow these steps to set up the development environment:
 1.  Go to [ACROBAT Grand Challenge](https://acrobat.grand-challenge.org/).
 2.  Register and download the data from their website.
 
+> **Note:** If you just want to test if the method runs, you can use the small dataset provided in this repository (`small_dataset_training` and `small_dataset_testing`) without downloading the full dataset.
+
 ## Usage
 
 Clear instructions on how to run the project.
