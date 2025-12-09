@@ -14,6 +14,8 @@ Before running the project, ensure you have the following installed:
 
 - [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 
+> **Note:** Training and inference processes may require a significant amount of system memory (RAM) and a GPU with sufficient VRAM.
+
 ## Installation
 
 Follow these steps to set up the development environment:
@@ -46,7 +48,17 @@ Follow these steps to set up the development environment:
 
 Clear instructions on how to run the project.
 
-1.  **Preprocessing Data**
+
+1.  **Quick Start / Testing**
+
+    For a simplified run to test the pipeline on a small dataset, you can use the provided shell scripts. **If you run these scripts, you do NOT need to manually execute Steps 2 through 6.**
+    
+    *   **Training:** Run `test_run_training.sh` to train the models on a small subset.
+    *   **Testing:** Run `test_run_testing.sh` to perform inference on a small subset.
+
+    > **Note:** You may need to adjust the paths in these scripts to match your local environment.
+
+2.  **Preprocessing Data**
 
     Create paired data from all images. The following example shows how to create pairs of KI67 and PGR stained images:
 
@@ -79,7 +91,7 @@ Clear instructions on how to run the project.
     done;
     ```
 
-2.  **Training Global Deformation Model**
+3.  **Training Global Deformation Model**
 
     Train the global deformation model using the preprocessed data.
 
@@ -95,7 +107,7 @@ Clear instructions on how to run the project.
           --save_path ${save_path}
     ```
 
-3.  **Run Global Deformation & Divide Patches**
+4.  **Run Global Deformation & Divide Patches**
 
     Run the trained global deformation model on the training dataset and divide the results into patches.
 
@@ -130,7 +142,7 @@ Clear instructions on how to run the project.
     done;
     ```
 
-4.  **Train Local Deformation Model**
+5.  **Train Local Deformation Model**
 
     Train the local deformation model using the patches generated in the previous step.
 
@@ -146,7 +158,7 @@ Clear instructions on how to run the project.
         --save_path ${save_path}
     ```
 
-5.  **Run Pipeline on Single Image Pair**
+6.  **Run Pipeline on Single Image Pair**
 
     Run the full registration pipeline on a single pair of images using the trained models.
 
@@ -164,4 +176,12 @@ Clear instructions on how to run the project.
         --local_model_path ${local_model} \
         --save_dir ${save_dir}
     ```
+
+7.  **Viewing Results**
+
+    We provide a Jupyter Notebook `view_output.ipynb` to visualize the example output and compare the registration results. You can open and run this notebook to inspect the performance of the pipeline.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
