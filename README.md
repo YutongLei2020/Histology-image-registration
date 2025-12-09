@@ -177,9 +177,7 @@ Clear instructions on how to run the project.
         --save_dir ${save_dir}
     ```
 
-7.  **Viewing Results**
 
-    We provide a Jupyter Notebook `view_output.ipynb` to visualize the example output and compare the registration results. You can open and run this notebook to inspect the performance of the pipeline.
 
 ## License
 
