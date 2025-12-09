@@ -76,10 +76,14 @@ def main():
     cropped_fixed_orig = tiff.imread(args.input_fixed)
     cropped_trans_orig = tiff.imread(args.input_moving)
 
-    transformed_img = cropped_trans_orig.astype(np.float32) / 255.0
+    transformed_img = cropped_trans_orig.astype(np.float32)
     # transformed_img = cv2.resize(transformed_img, None, fx=0.5, fy=0.5) # temp
-    image2 = cropped_fixed_orig.astype(np.float32) / 255.0
-    # image2 = cv2.resize(image2, None, fx=0.5, fy=0.5)
+    image2 = cropped_fixed_orig.astype(np.float32)
+
+    transformed_img = transformed_img / 255.0 if transformed_img.max() > 1 else transformed_img
+    image2 = image2 / 255.0 if image2.max() > 1 else image2
+    image2 = cv2.resize(image2, None, fx=0.5, fy=0.5)
+    transformed_img = cv2.resize(transformed_img, None, fx=0.5, fy=0.5)
     print('Shapes: ',transformed_img.shape, image2.shape)
 
     temp = cv2.resize(transformed_img, None, fx=0.1, fy=0.1)
@@ -105,6 +109,7 @@ def main():
 
     scale = 10
     fixed_mask = cv2.resize(fixed_mask, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+    moving_mask = moving_mask.astype(np.uint8)
     moving_mask = cv2.resize(moving_mask, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
 
     joint_mask = fixed_mask | moving_mask

@@ -10,9 +10,9 @@ from skimage import measure, morphology
 from scipy import ndimage
 from transformers import AutoImageProcessor, SuperGlueForKeypointMatching
 from tiatoolbox.models.engine.semantic_segmentor import SemanticSegmentor
-import Global_deformation_functions as global_deform
-import Local_deformation_512_v2_functions as local_deform
-import divide_patch_functions as divide_patch
+import Global_deformation_train as global_deform
+import Local_deformation_train as local_deform
+import divide_patch as divide_patch
 import pandas as pd
 import math
 import torch.nn.functional as F
@@ -169,6 +169,70 @@ def get_nonzero_bbox_rgb(image):
 
     return xmin, xmax, ymin, ymax
 
+def apply_deformation_np(image, deformation):
+    """
+    image:       (H, W)
+    deformation: can be one of:
+                 - (2, H, W)      [dy, dx]
+                 - (2, W, H)      [dy, dx]
+                 - (H, W, 2)      [..., (dy, dx)]
+    returns:     warped image (H, W)
+    """
+    H, W = image.shape
+    deformation = np.asarray(deformation)
+
+    # Figure out layout and extract dy, dx as (H, W)
+    if deformation.shape == (2, H, W):
+        # [2, H, W]
+        dy = deformation[0]
+        dx = deformation[1]
+    elif deformation.shape == (2, W, H):
+        # [2, W, H] -> transpose
+        dy = deformation[0].T
+        dx = deformation[1].T
+    elif deformation.shape == (H, W, 2):
+        # [H, W, 2]
+        dy = deformation[..., 0]
+        dx = deformation[..., 1]
+    else:
+        raise ValueError(f"Unexpected deformation shape {deformation.shape} for image {image.shape}")
+
+    # sanity check
+    assert dy.shape == (H, W) and dx.shape == (H, W), \
+        f"dy/dx must be (H, W); got {dy.shape}, {dx.shape}"
+
+    # --- backward mapping / bilinear sampling ---
+    y, x = np.meshgrid(np.arange(H), np.arange(W), indexing='ij')  # (H, W)
+
+    y_src = y + dy
+    x_src = x + dx
+
+    # floor / ceil
+    x0 = np.floor(x_src).astype(np.int32)
+    y0 = np.floor(y_src).astype(np.int32)
+    x1 = x0 + 1
+    y1 = y0 + 1
+
+    # clip to image bounds
+    x0 = np.clip(x0, 0, W - 1)
+    x1 = np.clip(x1, 0, W - 1)
+    y0 = np.clip(y0, 0, H - 1)
+    y1 = np.clip(y1, 0, H - 1)
+
+    # bilinear weights
+    wa = (x1 - x_src) * (y1 - y_src)
+    wb = (x_src - x0) * (y1 - y_src)
+    wc = (x1 - x_src) * (y_src - y0)
+    wd = (x_src - x0) * (y_src - y0)
+
+    Ia = image[y0, x0]
+    Ib = image[y0, x1]
+    Ic = image[y1, x0]
+    Id = image[y1, x1]
+
+    warped = wa * Ia + wb * Ib + wc * Ic + wd * Id
+    return warped.astype(image.dtype)
+
 
 def post_processing_mask_relative(mask: np.ndarray, ratio=0.2) -> np.ndarray:
     mask_filled = ndimage.binary_fill_holes(mask).astype(bool)
@@ -285,11 +349,13 @@ def preprocess_images(moving_path, fixed_path, save_dir, global_model_path, loca
     ####################
     # Divide patch
     ####################
-    patches_fixed = divide_patch.extract_context_patches_with_padding(fixed.mean(axis=2), center_size=512)
+    fixed2 = cv2.resize(fixed, None, fx=0.5, fy=0.5)
+    moving2 = cv2.resize(np_warped_high_res, None, fx=0.5, fy=0.5)
+    patches_fixed = divide_patch.extract_context_patches_with_padding(fixed2.mean(axis=2), center_size=512)
 
     # save_patches_to_folder(patches, save_dir=os.path.join(args.save_dir, "patches_512_registered3_with_global",'fixed'))
 
-    patches_moving = divide_patch.extract_context_patches_with_padding(np_warped_high_res, center_size=512)
+    patches_moving = divide_patch.extract_context_patches_with_padding(moving2, center_size=512)
 
     # save_patches_to_folder(patches_moving, save_dir=os.path.join(args.save_dir, "patches_512_registered3_with_global",'moving'))
 
@@ -299,7 +365,7 @@ def preprocess_images(moving_path, fixed_path, save_dir, global_model_path, loca
     ####################
     # Local regisration
     ####################
-    shape_orig = fixed.mean(axis=2).shape
+    shape_orig = fixed2.shape
     fixed_list = []
     moving_out_list = []
     deformation_field = []
@@ -327,17 +393,24 @@ def preprocess_images(moving_path, fixed_path, save_dir, global_model_path, loca
 
         deformation_field.append(output.squeeze(0).squeeze(0).detach().cpu().numpy())
 
-        warped_img = local_deform.apply_deformation_torch(moving_center, output)
+        # warped_img = local_deform.apply_deformation_torch(moving_center, output)
 
-        moving_out_list.append(warped_img.squeeze(0).squeeze(0).detach().cpu().numpy())
+        # moving_out_list.append(warped_img.squeeze(0).squeeze(0).detach().cpu().numpy())
 
-    print(f'Shapes: {moving_out_list[0].shape}, {deformation_field[0].shape}')
+    # print(f'Shapes: {moving_out_list[0].shape}, {deformation_field[0].shape}')
 
-    final_out = local_deform.stitch_patches(moving_out_list, shape_orig, patch_size=512)
+    # final_out = local_deform.stitch_patches(moving_out_list, shape_orig, patch_size=512)
     final_field = local_deform.stitch_patches_chw(deformation_field, shape_orig, patch_size=512)
+    # final_field = cv2.resize(final_field, None, fx=2, fy=2)
+
+    final_out = apply_deformation_np(fixed2.mean(axis=2), final_field)
+    
+    # local_deform.apply_deformation_torch(moving_center, output)
+    
     # filename= f"{path}{f}/final_registered_with_global.tif"
     # tiff.imwrite(filename, final_out)
     tiff.imwrite(os.path.join(save_dir, "preprocess_out/transformed_moving.tif"), final_out)
+    tiff.imwrite(os.path.join(save_dir, "preprocess_out/fixed.tif"), fixed2)
 
     # filename2= f"{path}{f}/deformation_field.tif"
     # tiff.imwrite(filename2, final_field)

@@ -1,0 +1,29 @@
+2025-12-08 15:24:06.315536: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1765236246.336794 3455111 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1765236246.343348 3455111 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-12-08 15:24:06.367205: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+|2025-12-08|15:24:17.710| [WARNING] /home/leiy28/.conda/envs/general_python2/lib/python3.9/site-packages/albumentations/__init__.py:24: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.21). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.52, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+|2025-12-08|16:01:29.814| [WARNING] /home/leiy28/Histology-image-registration/registration.py:211: RuntimeWarning: invalid value encountered in cast
+  x0 = np.floor(x_src).astype(np.int32)
+
+|2025-12-08|16:01:30.242| [WARNING] /home/leiy28/Histology-image-registration/registration.py:212: RuntimeWarning: invalid value encountered in cast
+  y0 = np.floor(y_src).astype(np.int32)
+
+Import packages ...
+Helper functions ...
+Import packages ...
+Helper functions ...
+Processing (/home/leiy28/Histology-image-registration//small_dataset_testing/2_ER_val.tif) -> (/home/leiy28/Histology-image-registration//small_dataset_testing/2_HE_val.tif).
+[1] Loading SuperGlue model and image processor...
+[2] Reading input TIFF images...
+[3] Running SuperGlue keypoint matching...
+[4] Found 25 matched keypoints.
+[5] Estimating homography and warping image1...
+torch.Size([1, 2, 23296, 34816])
+torch.Size([1, 23296, 34816, 2]) torch.Size([1, 23296, 34816, 2])
+/home/leiy28/Histology-image-registration//example_output/ Finished.

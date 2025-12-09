@@ -55,7 +55,7 @@ Clear instructions on how to run the project.
     out_dir='/extra/zhanglab0/INDV/leiy28/image_registration/acrobat_train_KI67_PGR'
     mkdir -p ${out_dir}
 
-    for i in {120..120}; do
+    for i in {0..120}; do
         image1=${read_dir}/${i}_KI67_train.tif
         image2=${read_dir}/${i}_PGR_train.tif
         if [ -f ${image1} ]; then
@@ -73,7 +73,7 @@ Clear instructions on how to run the project.
         fi
         
         python preprocessing.py \
-          --data_path ${image1} \
+          --data1_path ${image1} \
           --data2_path ${image2} \
           --save_dir ${out_dir}/KI67_PGR_${i}/
     done;

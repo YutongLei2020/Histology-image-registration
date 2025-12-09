@@ -23,6 +23,94 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def stitch_patches(patches, original_shape, patch_size=512):
+    """
+    patches: list or array of shape (N, 512, 512) or (N, 512, 512, C)
+             (can also be a list of torch.Tensors; they will be converted)
+    original_shape: (H, W) for grayscale or (H, W, C) for color
+    patch_size: edge length of each patch (default 512)
+    """
+    # Normalize input to a NumPy array
+    if isinstance(patches, list):
+        first = patches[0]
+        if hasattr(first, "detach"):  # torch.Tensor
+            patches = [p.detach().cpu().numpy() for p in patches]
+        patches = np.stack(patches, axis=0)
+    elif hasattr(patches, "detach"):  # torch.Tensor batch
+        patches = patches.detach().cpu().numpy()
+
+    H, W = original_shape[:2]
+    C = 1 if patches.ndim == 3 else patches.shape[-1]
+
+    # Number of tiles needed in each dimension (same logic as extraction)
+    ny = math.ceil(H / patch_size)
+    nx = math.ceil(W / patch_size)
+
+    # Sanity check
+    assert patches.shape[0] == ny * nx, (
+        f"Expected {ny*nx} patches but got {patches.shape[0]}"
+    )
+
+    # Prepare canvas (padded size)
+    pad_h = ny * patch_size
+    pad_w = nx * patch_size
+    if C == 1:
+        canvas = np.zeros((pad_h, pad_w), dtype=patches.dtype)
+    else:
+        canvas = np.zeros((pad_h, pad_w, C), dtype=patches.dtype)
+
+    # Tile patches back (row-major)
+    for idx in range(patches.shape[0]):
+        r = idx // nx
+        c = idx % nx
+        y0, y1 = r * patch_size, (r + 1) * patch_size
+        x0, x1 = c * patch_size, (c + 1) * patch_size
+        if C == 1:
+            canvas[y0:y1, x0:x1] = patches[idx]
+        else:
+            canvas[y0:y1, x0:x1, :] = patches[idx]
+
+    # Crop to the original size
+    if C == 1 and len(original_shape) == 2:
+        return canvas[:H, :W]
+    else:
+        return canvas[:H, :W, :]
+
+def stitch_patches_chw(patches, original_shape, patch_size=512):
+    """
+    patches: list of np.ndarray, each (C, 512, 512) with C=2
+    original_shape: (H, W) or (H, W, C)
+    returns: np.ndarray of shape (H, W, C) if C>1, else (H, W)
+    """
+    # Stack -> (N, C, H, W)
+    patches = np.stack(patches, axis=0)  # (N, 2, 512, 512)
+    N, C, Ht, Wt = patches.shape
+    assert Ht == patch_size and Wt == patch_size, "Patch size mismatch."
+
+    H, W = original_shape[:2]
+    ny = math.ceil(H / patch_size)
+    nx = math.ceil(W / patch_size)
+    assert N == ny * nx, f"Expected {ny*nx} patches, got {N}"
+
+    # Prepare canvas (channels-last for easy assignment)
+    canvas = np.zeros((ny * patch_size, nx * patch_size, C), dtype=patches.dtype)
+
+    # Convert to channels-last: (N, H, W, C)
+    patches_hwc = np.transpose(patches, (0, 2, 3, 1))
+
+    # Tile back row-major
+    for idx in range(N):
+        r, c = divmod(idx, nx)
+        y0, x0 = r * patch_size, c * patch_size
+        canvas[y0:y0+patch_size, x0:x0+patch_size, :] = patches_hwc[idx]
+
+    # Crop to original size
+    out = canvas[:H, :W, :]
+    # If you prefer (H, W) when C==1, squeeze last dim:
+    if out.shape[2] == 1:
+        out = out[..., 0]
+    return out
+
 def balanced_batch_loader(easy_ds, med_ds, hard_ds, batch_size=3):
     easy_loader = cycle(DataLoader(easy_ds, batch_size=1, shuffle=True))
     med_loader = cycle(DataLoader(med_ds, batch_size=1, shuffle=True))
@@ -315,8 +403,8 @@ def read_input_images_local(input_path: str):
 
     for f in subfolders:
         print(f"Processing {f}...")
-        fixed_dir = os.path.join(input_path, f, "patches_512_registered3", "fixed")
-        moving_dir = os.path.join(input_path, f, "patches_512_registered3", "moving")
+        fixed_dir = os.path.join(input_path, f, "patches_512", "fixed")
+        moving_dir = os.path.join(input_path, f, "patches_512", "moving")
 
         if not os.path.exists(fixed_dir) or not os.path.exists(moving_dir):
             print(f"Missing fixed/moving folder for {f}, skipping.")
@@ -328,14 +416,17 @@ def read_input_images_local(input_path: str):
         for i in range(len(fixed_files)):
             fixed_path = os.path.join(fixed_dir, fixed_files[i])
             moving_path = os.path.join(moving_dir, moving_files[i])
+            print(fixed_path, moving_path)
 
             if not os.path.exists(fixed_path) or not os.path.exists(moving_path):
                 print(f"Missing files for {f}, skipping.")
                 continue
 
             # Load image patches
-            moving_patch = tiff.imread(moving_path).astype(float)
-            fixed_patch = tiff.imread(fixed_path).astype(float).mean(axis=2)
+            # moving_patch = tiff.imread(moving_path).astype(float)
+            # fixed_patch = tiff.imread(fixed_path).astype(float).mean(axis=2)
+            moving_patch = cv2.imread(moving_path, cv2.IMREAD_UNCHANGED)
+            fixed_patch = cv2.imread(fixed_path, cv2.IMREAD_UNCHANGED).mean(axis=2)
 
             # Normalize
             moving_patch_bw = moving_patch / 255.0 if moving_patch.max() > 1 else moving_patch
@@ -384,9 +475,13 @@ def read_input_images_local(input_path: str):
     return buckets, fixed_buckets, moving_buckets, bucket_dataloaders, train_loader
 
 
-def train_local(save_path: str, train_loader):
+def train_local(save_path: str, buckets, fixed_buckets, moving_buckets, bucket_dataloaders, train_loader):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = DualEncoderUNet(in_ch=1).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-    num_epochs = 300
+
+    num_epochs = 10
     loss_history = []
     # bucket_dataloaders["high"], bucket_dataloaders["medium"], bucket_dataloaders["low"]
     num_batches = max(len(bucket_dataloaders["low"]), len(bucket_dataloaders["medium"]), len(bucket_dataloaders["high"]))
@@ -438,7 +533,14 @@ def main():
     args = parser.parse_args()
 
     buckets, fixed_buckets, moving_buckets, bucket_dataloaders, train_loader = read_input_images_local(args.input_path)
-    train_local(save_path=args.save_path, train_loader=train_loader)
+    train_local(
+        save_path=args.save_path,
+        buckets=buckets,
+        fixed_buckets=fixed_buckets,
+        moving_buckets=moving_buckets,
+        bucket_dataloaders=bucket_dataloaders,
+        train_loader=train_loader
+    )
 
 if __name__ == "__main__":
     main()
